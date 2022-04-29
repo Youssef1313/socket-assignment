@@ -15,4 +15,4 @@ class HttpRequest:
         self.method = method
         self.file_name = file_name
         self.host_name = host_name
-        self.port_number = port_number
+        self.port_number = 80 if port_number is None else port_number
