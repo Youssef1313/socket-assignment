@@ -31,8 +31,10 @@ class InputParser:
                self.input[end_index] != ' ' and
                self.input[end_index] != '\r'):
             end_index += 1
+        # TODO: end_index + 1?
         parsed_string = self.input[self.position:end_index]
         # The `+ 1` eats the space after the string.
+        # TODO: + 2 for \r\n?
         self.position = end_index + 1
         return parsed_string
 
@@ -45,6 +47,7 @@ class InputParser:
             # No digits were found. The port is optional, so we
             # don't throw an exception. Instead, we return None.
             return None
+        # end_index + 1 ??
         self.position = end_index
         return int(self.input[self.position:end_index])
 
