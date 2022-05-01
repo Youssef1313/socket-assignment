@@ -23,24 +23,38 @@ class WebClient:
         s.sendall(bytes(data, encoding="utf-8"))
         response: str = ""
 
+        # Read Keep reading until we're sure we have all the headers.
         headers_length = -1
-        while True:
+        while headers_length == -1:
             current: str = s.recv(1024).decode()
             response += current
-            if headers_length == -1:
-                headers_length = response.find("\r\n\r\n")
-                if headers_length != -1:
-                    content_length = self.__find_content_length(response)
-                    print(f"Content length is {content_length}")
+            headers_length = response.find("\r\n\r\n")
 
-            if content_length == -1:
-                # Handle chunked.
-                pass
-            else:
-                # end_of_headers_index
-                expected_total_length = headers_length + len("\r\n\r\n") + content_length
-                if len(response) >= expected_total_length:
-                    break
+        # Now that we have all headers, try to find content length.
+        content_length = self.__find_content_length(response)
+        print(f"Content length is {content_length}")
+
+        if content_length == -1:
+            # Handle chunked.
+            is_end = False
+            while not is_end:
+                current: str = s.recv(1024).decode()
+                chunk_size = self.__get_chunk_size(current)
+                is_end = current.endswith('0\r\n\r\n')
+                # Chunk starts with its size, in hex format, followed by \r\n.
+                # Then the chunk itself, then another \r\n.
+                # For this simple client, we will not verify the size.
+                # We just do a simple slicing.
+                #start_of_chunk = current.index('\r\n') + len('\r\n')
+                #current = current[start_of_chunk:len(current) - len('\r\n')]
+                response += current
+        else:
+            # We have content-length specified. So keep reading until we complete
+            # the incoming data.
+            expected_total_length = headers_length + len("\r\n\r\n") + content_length
+            while len(response) < expected_total_length:
+                current: str = s.recv(1024).decode()
+                response += current
 
     def __find_content_length(self, data: str) -> int:
         lines = data.split("\r\n")
@@ -58,3 +72,18 @@ class WebClient:
         # TODO: Add optional headers on the form of `header_name: value` followed by CRLF
         raw_http += "\r\n"
         return raw_http
+
+    def __get_chunk_size(self, data: str):
+        chunk_size_hex = ""
+        for c in data:
+            if c.lower() in "0123456789abcdef":
+                chunk_size_hex += c
+            else:
+                break
+
+        if chunk_size_hex == "":
+            raise ValueError("Expected hex number in beginning of a chunk.")
+        if data[len(chunk_size_hex):len(chunk_size_hex) + len('\r\n')] != '\r\n':
+            raise ValueError("Expected \r\n after hex chunk size.")
+
+        return int(chunk_size_hex, 16)
