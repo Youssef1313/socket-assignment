@@ -97,7 +97,7 @@ class InputParser:
 
         # The whole file is now consumed.
         if (state == ParsingState.EXPECTING_OPTIONAL_PORT_NUMBER or
-            state == ParsingState.EXPECTING_OPTIONAL_HEADERS): # TODO: Other optional states.
+                state == ParsingState.EXPECTING_OPTIONAL_HEADERS):  # TODO: Other optional states.
             requests.append(HttpRequest(method, file_name, host_name, port_number))
             state = ParsingState.EXPECTING_HTTP_METHOD
 

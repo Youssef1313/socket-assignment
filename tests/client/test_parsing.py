@@ -9,11 +9,13 @@ def test_minimal_allowed():
     assert len(requests) == 1
     assert_request("file", "host", 80, HttpMethod.GET, requests[0])
 
+
 def test_minimal_allowed_with_port():
     parser = InputParser("""GET file host 8080""")
     requests = parser.parse_input()
     assert len(requests) == 1
     assert_request("file", "host", 8080, HttpMethod.GET, requests[0])
+
 
 def assert_request(expected_filename: str,
                    expected_hostname: str,
