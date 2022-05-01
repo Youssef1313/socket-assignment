@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0,'.')
+sys.path.insert(0, '.')
 
 from src.client.WebClient import WebClient
 from src.client.HttpMethod import HttpMethod

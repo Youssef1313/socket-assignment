@@ -1,6 +1,7 @@
 from src.client.HttpRequest import HttpRequest
 import socket
 
+
 class WebClient:
     def send_request(self, request: HttpRequest) -> None:
         raw_http = self.__get_raw_http(request)
@@ -10,7 +11,6 @@ class WebClient:
             data = s.recv(1024)
             print("Received:")
             print(f"{data!r}")
-
 
     def __get_raw_http(self, request: HttpRequest) -> str:
         raw_http: str = request.method.name + " " + request.get_url() + " HTTP/1.1\r\n"
