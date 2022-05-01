@@ -13,7 +13,7 @@ class WebClient:
             print(f"{data!r}")
 
     def __get_raw_http(self, request: HttpRequest) -> str:
-        raw_http: str = request.method.name + " " + request.get_url() + " HTTP/1.1\r\n"
+        raw_http: str = request.method.name + " " + request.file_name + " HTTP/1.1\r\n"
         raw_http += "Host: " + request.host_name + "\r\n"
         # TODO: Add optional headers on the form of `header_name: value` followed by CRLF
         raw_http += "\r\n"
