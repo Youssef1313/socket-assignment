@@ -1,5 +1,5 @@
 from argparse import ArgumentError
-from client.HttpMethod import HttpMethod
+from src.client.HttpMethod import HttpMethod
 
 
 class HttpRequest:
@@ -16,3 +16,10 @@ class HttpRequest:
         self.file_name = file_name
         self.host_name = host_name
         self.port_number = 80 if port_number is None else port_number
+
+    def get_url(self) -> str:
+        if (not self.file_name.startswith('/') and
+                not self.host_name.endswith('/')):
+            return self.host_name + "/" + self.file_name
+        # TODO: Check if double slashes are okay.
+        return "https://" + self.host_name + self.file_name
