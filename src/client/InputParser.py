@@ -55,10 +55,10 @@ class InputParser:
         state: ParsingState = ParsingState.EXPECTING_HTTP_METHOD
         requests: list[HttpRequest] = []
 
-        method: HttpMethod
-        host_name: str
-        file_name: str
-        port_number: int
+        method: HttpMethod = None
+        host_name: str = None
+        file_name: str = None
+        port_number: int = None
 
         while not self.__reached_end():
             if state == ParsingState.EXPECTING_HTTP_METHOD:
