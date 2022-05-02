@@ -6,8 +6,8 @@ class ChunkedEncodingHandler:
         self.current_chunk_size = 0
         self.position = 0
         self.expecting_new_chunk = True
-        self.CRLF = "\r\n"
-        self.CRLF_LENGTH = len(self.CRLF.encode())
+        self.CRLF = b"\r\n"
+        self.CRLF_LENGTH = len(self.CRLF)
 
     def __set_chunk_size_and_advance_position(self):
         if self.position == len(self.data_accumulator):
@@ -27,7 +27,7 @@ class ChunkedEncodingHandler:
 
         position_after_hex = self.position + len(chunk_size_hex)
         data_after_hex = self.data_accumulator[position_after_hex:position_after_hex + self.CRLF_LENGTH]
-        if data_after_hex.decode() != self.CRLF and len(data_after_hex) == self.CRLF_LENGTH:
+        if data_after_hex != self.CRLF and len(data_after_hex) == self.CRLF_LENGTH:
             # There is data after the hex, but it's not \r\n
             raise ValueError("Expected CRLF after hex chunk size.")
         elif data_after_hex != self.CRLF:
@@ -57,7 +57,7 @@ class ChunkedEncodingHandler:
                 elif data_after_chunk != self.CRLF:
                     return
 
-                self.chunks.append(chunk)
+                self.chunks.append(chunk.decode())
                 self.position = position_after_chunk + self.CRLF_LENGTH
                 self.expecting_new_chunk = True
                 self.__set_chunk_size_and_advance_position()

@@ -18,7 +18,9 @@ class WebClient:
                 s.connect((request.host_name, request.port_number))
                 data = self.__send_receive(s, raw_http)
             print("Received:")
-            print(data)
+            with open('C:\\received.txt', 'w', encoding="utf-8") as f:
+                f.write(data)
+            #print(data)
 
     def __send_receive(self, s: socket.socket, data: str) -> str:
         s.sendall(bytes(data, encoding="utf-8"))
@@ -40,6 +42,7 @@ class WebClient:
             chunked_handler = ChunkedEncodingHandler()
             while not chunked_handler.is_complete:
                 chunked_handler.add_data(s.recv(1024))
+            return ''.join(chunked_handler.chunks)
         else:
             # We have content-length specified. So keep reading until we complete
             # the incoming data.
@@ -47,11 +50,12 @@ class WebClient:
             while len(response.encode()) < expected_total_length:
                 current: str = s.recv(1024).decode()
                 response += current
+            return response.decode()
 
     def __find_content_length(self, data: bytes) -> int:
         lines = data.split(b"\r\n")
         for line in lines:
-            if line == "":
+            if line == b"":
                 break
             if line.lower().startswith(b"content-length: "):
                 return int(line[len(b"content-length: "):].decode())
