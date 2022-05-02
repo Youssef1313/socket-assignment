@@ -39,16 +39,16 @@ class InputParser:
 
     def __parse_string(self) -> str:
         start_index = self.position
-        while (not self.__reached_end() and
-               not self.__is_current_string(' ') and
-               not self.__is_current_string('\r\n')):
+        while (not self.__reached_end()
+               and not self.__is_current_string(' ')
+               and not self.__is_current_string('\r\n')):
             self.position += 1
         return self.input[start_index:self.position]
 
     def __parse_port(self) -> int:
         start_index = self.position
-        while (not self.__reached_end() and
-               self.input[self.position].isdigit()):
+        while (not self.__reached_end()
+               and self.input[self.position].isdigit()):
             self.position += 1
         if start_index == self.position:
             raise ValueError(f"Expected a port number at position '{self.position}'.")
@@ -108,8 +108,8 @@ class InputParser:
                 state = ParsingState.EXPECTING_HTTP_METHOD
 
         # The whole file is now consumed.
-        if (state == ParsingState.EXPECTING_OPTIONAL_PORT_NUMBER or
-                state == ParsingState.EXPECTING_OPTIONAL_HEADERS):  # TODO: Other optional states.
+        if (state == ParsingState.EXPECTING_OPTIONAL_PORT_NUMBER
+                or state == ParsingState.EXPECTING_OPTIONAL_HEADERS):  # TODO: Other optional states.
             requests.append(data.to_request())
             state = ParsingState.EXPECTING_HTTP_METHOD
 
