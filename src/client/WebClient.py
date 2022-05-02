@@ -22,14 +22,14 @@ class WebClient:
 
     def __send_receive(self, s: socket.socket, data: str) -> str:
         s.sendall(bytes(data, encoding="utf-8"))
-        response: str = ""
+        response: bytes = b""
 
         # Read Keep reading until we're sure we have all the headers.
         headers_length = -1
         while headers_length == -1:
-            current: str = s.recv(1024).decode()
+            current: bytes = s.recv(1024)
             response += current
-            headers_length = response.find("\r\n\r\n")
+            headers_length = response.find(b"\r\n\r\n")
 
         # Now that we have all headers, try to find content length.
         content_length = self.__find_content_length(response)
@@ -39,23 +39,23 @@ class WebClient:
             # Handle chunked.
             chunked_handler = ChunkedEncodingHandler()
             while not chunked_handler.is_complete:
-                chunked_handler.add_data(s.recv(1024).decode())
+                chunked_handler.add_data(s.recv(1024))
         else:
             # We have content-length specified. So keep reading until we complete
             # the incoming data.
             expected_total_length = headers_length + len("\r\n\r\n") + content_length
-            while len(response) < expected_total_length:
+            while len(response.encode()) < expected_total_length:
                 current: str = s.recv(1024).decode()
                 response += current
 
-    def __find_content_length(self, data: str) -> int:
-        lines = data.split("\r\n")
+    def __find_content_length(self, data: bytes) -> int:
+        lines = data.split(b"\r\n")
         for line in lines:
             if line == "":
                 break
-            if line.lower().startswith("content-length: "):
-                return int(line[len("content-length: "):])
-            if line.lower() == "transfer-encoding: chunked":
+            if line.lower().startswith(b"content-length: "):
+                return int(line[len(b"content-length: "):].decode())
+            if line.lower() == b"transfer-encoding: chunked":
                 return -1
 
     def __get_raw_http(self, request: HttpRequest) -> str:

@@ -2,7 +2,7 @@ class ChunkedEncodingHandler:
     def __init__(self):
         self.is_complete = False
         self.chunks: list[str] = []
-        self.data_accumulator = ""
+        self.data_accumulator = b""
         self.current_chunk_size = 0
         self.position = 0
         self.expecting_new_chunk = True
@@ -16,7 +16,7 @@ class ChunkedEncodingHandler:
 
         chunk_size_hex = ""
         for i in range(self.position, len(self.data_accumulator)):
-            c = self.data_accumulator[i]
+            c = chr(self.data_accumulator[i])
             if c.lower() in "0123456789abcdef":
                 chunk_size_hex += c
             else:
@@ -26,21 +26,21 @@ class ChunkedEncodingHandler:
             raise ValueError("Expected hex number in beginning of a new chunk.")
 
         position_after_hex = self.position + len(chunk_size_hex)
-        data_after_hex = self.data_accumulator[position_after_hex:position_after_hex + len('\r\n')]
-        if data_after_hex != '\r\n' and len(data_after_hex) == len('\r\n'):
+        data_after_hex = self.data_accumulator[position_after_hex:position_after_hex + self.CRLF_LENGTH]
+        if data_after_hex.decode() != self.CRLF and len(data_after_hex) == self.CRLF_LENGTH:
             # There is data after the hex, but it's not \r\n
             raise ValueError("Expected CRLF after hex chunk size.")
-        elif data_after_hex != '\r\n':
+        elif data_after_hex != self.CRLF:
             # Data containing new line isn't yet read. Skip for now.
             return
 
-        self.position = position_after_hex + len('\r\n')
+        self.position = position_after_hex + self.CRLF_LENGTH
         self.current_chunk_size = int(chunk_size_hex, 16)
         self.expecting_new_chunk = False
         if self.current_chunk_size == 0:
             self.is_complete = True
 
-    def add_data(self, data: str) -> None:
+    def add_data(self, data: bytes) -> None:
         self.data_accumulator += data
         if self.expecting_new_chunk:
             self.__set_chunk_size_and_advance_position()
@@ -50,15 +50,15 @@ class ChunkedEncodingHandler:
         while True:
             chunk = self.data_accumulator[self.position:self.position + self.current_chunk_size]
             if len(chunk) == self.current_chunk_size:
-                self.chunks.append(chunk)
                 position_after_chunk = self.position + self.current_chunk_size
-                data_after_chunk = self.data_accumulator[position_after_chunk:position_after_chunk + len('\r\n')]
-                if data_after_chunk != '\r\n' and len(data_after_chunk) == len('\r\n'):
+                data_after_chunk = self.data_accumulator[position_after_chunk:position_after_chunk + self.CRLF_LENGTH]
+                if data_after_chunk != self.CRLF and len(data_after_chunk) == self.CRLF_LENGTH:
                     raise ValueError("Expecting CRLF after chunk.")
-                elif data_after_chunk != '\r\n':
+                elif data_after_chunk != self.CRLF:
                     return
 
-                self.position = position_after_chunk + len('\r\n')
+                self.chunks.append(chunk)
+                self.position = position_after_chunk + self.CRLF_LENGTH
                 self.expecting_new_chunk = True
                 self.__set_chunk_size_and_advance_position()
             else:
