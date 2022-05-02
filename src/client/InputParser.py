@@ -27,9 +27,7 @@ class InputParser:
 
     def __parse_string(self) -> str:
         end_index = self.position
-        while (end_index < len(self.input) and
-               self.input[end_index] != ' ' and
-               self.input[end_index] != '\r'):
+        while end_index < len(self.input) and self.input[end_index] != ' ' and self.input[end_index] != '\r':
             end_index += 1
         # TODO: end_index + 1?
         parsed_string = self.input[self.position:end_index]
@@ -40,8 +38,7 @@ class InputParser:
 
     def __try_parse_port(self) -> int:
         end_index = self.position
-        while (end_index < len(self.input) and
-               self.input[end_index].isdigit()):
+        while end_index < len(self.input) and self.input[end_index].isdigit():
             end_index += 1
         if end_index == self.position:
             # No digits were found. The port is optional, so we

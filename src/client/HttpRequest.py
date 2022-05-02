@@ -1,5 +1,5 @@
 from argparse import ArgumentError
-from client.HttpMethod import HttpMethod
+from src.client.HttpMethod import HttpMethod
 
 
 class HttpRequest:
