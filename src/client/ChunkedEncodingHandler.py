@@ -1,7 +1,7 @@
 class ChunkedEncodingHandler:
     def __init__(self):
         self.is_complete = False
-        self.chunks: list[str] = []
+        self.chunks: list[bytes] = []
         self.data_accumulator = b""
         self.current_chunk_size = 0
         self.position = 0
@@ -57,7 +57,7 @@ class ChunkedEncodingHandler:
                 elif data_after_chunk != self.CRLF:
                     return
 
-                self.chunks.append(chunk.decode())
+                self.chunks.append(chunk)
                 self.position = position_after_chunk + self.CRLF_LENGTH
                 self.expecting_new_chunk = True
                 self.__set_chunk_size_and_advance_position()

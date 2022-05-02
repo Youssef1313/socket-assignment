@@ -17,12 +17,12 @@ class WebClient:
             else:
                 s.connect((request.host_name, request.port_number))
                 data = self.__send_receive(s, raw_http)
-            print("Received:")
-            with open('C:\\received.txt', 'w', encoding="utf-8") as f:
+            path = f"C:\\received-{request.host_name}.txt"
+            print(f"Writing response in '{path}'")
+            with open(path, 'wb') as f:
                 f.write(data)
-            #print(data)
 
-    def __send_receive(self, s: socket.socket, data: str) -> str:
+    def __send_receive(self, s: socket.socket, data: str) -> bytes:
         s.sendall(bytes(data, encoding="utf-8"))
         response: bytes = b""
 
@@ -42,15 +42,15 @@ class WebClient:
             chunked_handler = ChunkedEncodingHandler()
             while not chunked_handler.is_complete:
                 chunked_handler.add_data(s.recv(1024))
-            return ''.join(chunked_handler.chunks)
+            return response + b''.join(chunked_handler.chunks)
         else:
             # We have content-length specified. So keep reading until we complete
             # the incoming data.
             expected_total_length = headers_length + len("\r\n\r\n") + content_length
-            while len(response.encode()) < expected_total_length:
-                current: str = s.recv(1024).decode()
+            while len(response) < expected_total_length:
+                current = s.recv(1024)
                 response += current
-            return response.decode()
+            return response
 
     def __find_content_length(self, data: bytes) -> int:
         lines = data.split(b"\r\n")
@@ -63,7 +63,7 @@ class WebClient:
                 return -1
 
     def __get_raw_http(self, request: HttpRequest) -> str:
-        raw_http: str = request.method.name + " " + request.get_url() + " HTTP/1.1\r\n"
+        raw_http: str = request.method.name + " " + request.file_name + " HTTP/1.1\r\n"
         raw_http += "Host: " + request.host_name + "\r\n"
         # TODO: Add optional headers on the form of `header_name: value` followed by CRLF
         raw_http += "\r\n"
