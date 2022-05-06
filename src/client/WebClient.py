@@ -37,9 +37,20 @@ class WebClient:
         content_length = self.__find_content_length(response)
         print(f"Content length is {content_length}")
 
-        if content_length == -1:
+        if content_length is None:
+            while True:
+                current = s.recv(1024)
+                if len(current) == 0:
+                    return response
+                response += current
+        elif content_length == -1:
             # Handle chunked.
             chunked_handler = ChunkedEncodingHandler()
+            early_received_chunk = response[headers_length + len(b"\r\n\r\n"):]
+            response = response[:headers_length + len(b"\r\n\r\n")]
+            if len(early_received_chunk) > 0:
+                chunked_handler.add_data(early_received_chunk)
+
             while not chunked_handler.is_complete:
                 chunked_handler.add_data(s.recv(1024))
             return response + b''.join(chunked_handler.chunks)
