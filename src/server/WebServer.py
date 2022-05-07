@@ -34,7 +34,7 @@ class WebServer:
     @staticmethod
     def response_get(filename: str):
         if filename == '/' or filename == '':
-            filename = 'src\server\index.html'
+            filename = 'src/server/index.html'
 
         try:
             with open(filename, 'rb') as file:
