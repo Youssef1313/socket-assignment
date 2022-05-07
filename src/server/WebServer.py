@@ -1,7 +1,5 @@
-import io
+import os
 import socket
-import pathlib
-import base64
 import re
 from datetime import datetime
 
@@ -10,13 +8,6 @@ class WebServer:
     def __init__(self, port: int):
         self.host: str = 'localhost'
         self.port: int = port
-
-    @staticmethod
-    def check_img(filename: str):
-        extension = pathlib.Path(filename).suffix[1:]
-        if extension in ['jpg', 'jpeg', 'png', 'gif']:
-            return [True, extension]
-        return [False, extension]
 
     @staticmethod
     def create_file(data_type, payload):
@@ -44,33 +35,23 @@ class WebServer:
     def response_get(filename: str):
         # TODO: Send content-length.
         if filename == '/' or filename == '':
-            filename = 'index.html'
+            filename = 'src\server\index.html'
 
         try:
-            img_checker = WebServer.check_img(filename)
-
-            if img_checker[0]:
-                file = Image.open(filename, mode='r')
-                file_bytes = io.BytesIO()
-                file.save(file_bytes, format=img_checker[1])
-                img_bytes = file_bytes.getvalue()
-                img_data = (base64.b64encode(img_bytes))
-                # TODO: Send raw bytes directly. Don't wrap in HTML or base64.
-                content = f"<html><img src='data:image/{img_checker[1]};base64,{str(img_data)[2:]}/></html>"
-                # file.show()    To show externally outside the browser
-            else:
-                file = open(filename)
-                # TODO: Read as bytes.
+            with open(filename, 'rb') as file:
                 content = file.read()
-            file.close()
-            response = b'HTTP/1.0 200 OK\n\n' + content.encode() + b'\r\n'
+                error_code_and_name = b"200 OK"
         except IOError:
-            filename = 'error.html'
-            file = open(filename)
-            content = file.read()
-            file.close()
-            response = b'HTTP/1.0 404 NOT FOUND\n\n' + content.encode() + b'\r\n'
-        return response
+            filename = 'src/server/error.html'
+            with open(filename, 'rb') as file:
+                content = file.read()
+            error_code_and_name = b"404 Not Found"
+        # https://datatracker.ietf.org/doc/html/rfc2616#section-6
+        response = b"HTTP/1.1 " + error_code_and_name + b" \r\n"
+        response += "Content-Length: " + str(len(content)).encode() + b"\r\n"
+        # Add any more headers here.
+        response += b"\r\n"
+        response += content
 
     @staticmethod
     def response_post(request: bytes):
@@ -92,7 +73,7 @@ class WebServer:
         elif content_type.startswith('multipart/form-data'):
             return request
 
-        response = 'HTTP/1.0 201 CREATED\n\n' + f'<html><body><h3>HTTP/1.0 201 CREATED</h3>' \
+        response = 'HTTP/1.1 201 CREATED\n\n' + f'<html><body><h3>HTTP/1.1 201 CREATED</h3>' \
                                                 f'<h3>Data successfully added</h3>' \
                                                 f'<h4>check file named {file_path} in the server directory</h4>' \
                                                 f'<p>data: {payload} ' \
@@ -145,5 +126,6 @@ class WebServer:
         socket_server.close()
 
 
+print(f"Server running in '{os.getcwd()}'.")
 server = WebServer(6678)
 server.init_server()
