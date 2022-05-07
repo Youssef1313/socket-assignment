@@ -33,7 +33,6 @@ class WebServer:
 
     @staticmethod
     def response_get(filename: str):
-        # TODO: Send content-length.
         if filename == '/' or filename == '':
             filename = 'src\server\index.html'
 
@@ -90,7 +89,7 @@ class WebServer:
         try:
             socket_server.bind((self.host, self.port))
             # Queue incoming requests
-            socket_server.listen(5)
+            socket_server.listen()
             print(f"Listening on {self.host} PORT: {self.port}.....")
 
             while True:
