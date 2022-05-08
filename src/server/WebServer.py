@@ -5,7 +5,7 @@ import os
 import socket
 import threading
 from src.common.HttpMethod import HttpMethod
-from src.common.HttpRequestHeaderParser import HttpRequestHeaderParser
+from src.server.HttpRequestHeaderParser import HttpRequestHeaderParser
 from src.common.helpers import first_receive
 
 
@@ -32,7 +32,7 @@ class WebServer:
 
     @staticmethod
     def response_get(filename: str) -> bytes:
-        if filename == '/' or filename == '':
+        if filename == '/':
             filename = 'src/server/index.html'
 
         try:
@@ -102,7 +102,6 @@ class WebServer:
             while len(headers) + len(body) < expected_total_length:
                 body += client_connection.recv(1024)
 
-        # Parsing
         filename = self.get_filename(request_header_parser.url)
         if request_header_parser.method == HttpMethod.GET:
             response = self.response_get(filename)

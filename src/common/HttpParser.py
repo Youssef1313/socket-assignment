@@ -20,8 +20,18 @@ class HttpParser:
             self.headers[header_name.decode().lower()] = header_value.decode()
         self._eat_required(b'\r\n')
 
+    def _parse_until_token(self, token: bytes) -> bytes:
+        start = self.position
+        while not self.__reached_end() and not self.__has_current_token(token):
+            self.position += 1
+
+        if self.position == start:
+            raise ValueError("Error parsing until token.")
+
+        return self.raw_http[start:self.position]
+
     def _parse_until_space(self) -> bytes:
-        return self.__parse_until_token(b' ')
+        return self._parse_until_token(b' ')
 
     def _parse_method(self) -> HttpMethod:
         if self.__has_current_token(b"GET"):
@@ -46,19 +56,9 @@ class HttpParser:
     def __has_current_token(self, token: bytes):
         return self.raw_http[self.position:self.position + len(token)] == token
 
-    def __parse_until_token(self, token: bytes) -> bytes:
-        start = self.position
-        while not self.__reached_end() and not self.__has_current_token(token):
-            self.position += 1
-
-        if self.position == start:
-            raise ValueError("Error parsing until token.")
-
-        return self.raw_http[start:self.position]
-
     def __parse_header(self):
-        header_name = self.__parse_until_token(b': ')
+        header_name = self._parse_until_token(b': ')
         self._eat_required(b': ')
-        header_value = self.__parse_until_token(b'\r\n')
+        header_value = self._parse_until_token(b'\r\n')
         self._eat_required(b'\r\n')
         return (header_name, header_value)
