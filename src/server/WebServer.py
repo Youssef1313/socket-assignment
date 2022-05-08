@@ -93,20 +93,20 @@ class WebServer:
         headers = headers_body[0]
         body = headers_body[1]
 
-        requestHeaderParser = HttpRequestHeaderParser(headers)
-        requestHeaderParser.parse()
+        request_header_parser = HttpRequestHeaderParser(headers)
+        request_header_parser.parse()
 
-        content_length = requestHeaderParser.headers.get('content-length')
+        content_length = request_header_parser.headers.get('content-length')
         if content_length is not None:
             expected_total_length = len(headers) + int(content_length)
             while len(headers) + len(body) < expected_total_length:
                 body += client_connection.recv(1024)
 
         # Parsing
-        filename = self.get_filename(requestHeaderParser.url)
-        if requestHeaderParser.method == HttpMethod.GET:
+        filename = self.get_filename(request_header_parser.url)
+        if request_header_parser.method == HttpMethod.GET:
             response = self.response_get(filename)
-        elif requestHeaderParser.method == HttpMethod.POST:
+        elif request_header_parser.method == HttpMethod.POST:
             WebServer.create_file(filename, body)
             response = self.response_post(body)
         else:
