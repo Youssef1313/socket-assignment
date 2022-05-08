@@ -1,7 +1,9 @@
 import os
 import socket
-import re
-from datetime import datetime
+import threading
+from src.common.HttpMethod import HttpMethod
+
+from src.common.HttpRequestHeaderParser import HttpRequestHeaderParser
 
 
 class WebServer:
@@ -10,12 +12,9 @@ class WebServer:
         self.port: int = port
 
     @staticmethod
-    def create_file(data_type, payload):
-        filename = f"{datetime.timestamp(datetime.now())}.{data_type}"
-        output_file = open(filename, "w")
-        output_file.write(payload)
-        output_file.close()
-        return filename
+    def create_file(file_name: str, file_content: bytes) -> None:
+        with open(file_name, 'wb') as f:
+            f.write(file_content)
 
     @staticmethod
     def get_request_method(request: bytes) -> bytes:
@@ -24,15 +23,12 @@ class WebServer:
         return method
 
     @staticmethod
-    def get_filename(request: bytes) -> str:
-        headers = request.split(b'\r\n')
-        filename = headers[0].split()[1][1:]
-        print("headers")
-        print(headers)
-        return filename.decode()
+    def get_filename(url: bytes) -> str:
+        # TODO: This can be absolute or relative.
+        return url.decode()
 
     @staticmethod
-    def response_get(filename: str):
+    def response_get(filename: str) -> bytes:
         if filename == '/' or filename == '':
             filename = 'src/server/index.html'
 
@@ -51,34 +47,18 @@ class WebServer:
         # Add any more headers here.
         response += b"\r\n"
         response += content
+        return response
 
     @staticmethod
-    def response_post(request: bytes):
-        # TODO: Parse HTTP properly.
-        request: str = request.decode()
-        content_length_regx = re.compile("Content-Length: (.*?)\r")
-        content_length = int(content_length_regx.findall(request)[0])
-        payload = request[-content_length:]
-
-        content_type_regx = re.compile("Content-Type: (.*?)\r")
-        content_type = str(content_type_regx.findall(request)[0])
-
-        if content_type == 'application/json':
-            file_path = WebServer.create_file('json', payload=payload)
-        elif content_type == 'text/plain':
-            file_path = WebServer.create_file('txt', payload=payload)
-        elif content_type == 'text/html':
-            file_path = WebServer.create_file('html', payload=payload)
-        elif content_type.startswith('multipart/form-data'):
-            return request
-
-        response = 'HTTP/1.1 201 CREATED\n\n' + f'<html><body><h3>HTTP/1.1 201 CREATED</h3>' \
-                                                f'<h3>Data successfully added</h3>' \
-                                                f'<h4>check file named {file_path} in the server directory</h4>' \
-                                                f'<p>data: {payload} ' \
-                                                f'<br>Type: {content_type} <br>' \
-                                                f'Length: {content_length}' \
-                                                f'</p></body></html>'
+    def response_post(content: bytes) -> bytes:
+        response = b"HTTP/1.1 201 Created\r\n"
+        # https://datatracker.ietf.org/doc/html/rfc7231#section-6.3.2
+        # The primary resource created by the request is identified
+        # by either a Location header field in the response or, if no Location
+        # field is received, by the effective request URI.
+        response += b"Content-Length: " + str(len(content)).encode() + b"\r\n"
+        response += b"\r\n"
+        response += content
         return response
 
     def init_server(self) -> None:
@@ -94,35 +74,52 @@ class WebServer:
 
             while True:
                 # Accepting and receiving client requests
-                print("Before accept.")
                 (client_conn, client_address) = socket_server.accept()
-                print("Client connection opened")
-                request: bytes = client_conn.recv(1024)
-                print("Request : ")
-                print(request.decode())
-
-                # Parsing
-                filename = self.get_filename(request)
-                method = self.get_request_method(request)
-                if method == b'GET':
-                    response = self.response_get(filename)
-                elif method == b'POST':
-                    response = self.response_post(request)
-                else:
-                    # TODO: Respond with a valid HTTP.
-                    response = b"Only GET and POST methods are supported\r\n"
-
-                client_conn.sendall(response)
-                print("Response : ")
-                print(response)
-                client_conn.shutdown(socket.SHUT_RDWR)
-                # client_conn.close()
-                print("Client connection closed")
+                thread = threading.Thread(target=self.handle_request, args=(client_conn, client_address))
+                thread.start()
         except KeyboardInterrupt:
             print("\n Shutting down server...\n")
         except Exception as exp:
             print(exp)
         socket_server.close()
+
+    def handle_request(self, client_connection: socket.socket, client_address):
+        print("Client connection opened")
+        headers: bytes = b""
+        headers_length = -1
+        while headers_length == -1:
+            headers += client_connection.recv(1024)
+            headers_length = headers.find(b'\r\n\r\n')
+
+        body = headers[headers_length + len(b"\r\n\r\n"):]
+        headers = headers[:headers_length + len(b"\r\n\r\n")]
+
+        requestHeaderParser = HttpRequestHeaderParser(headers)
+        requestHeaderParser.parse()
+
+        content_length = requestHeaderParser.headers.get('content-length')
+        if content_length is not None:
+            expected_total_length = len(headers) + int(content_length)
+            while len(headers) + len(body) < expected_total_length:
+                body += client_connection.recv(1024)
+
+        # Parsing
+        filename = self.get_filename(requestHeaderParser.url)
+        if requestHeaderParser.method == HttpMethod.GET:
+            response = self.response_get(filename)
+        elif requestHeaderParser.method == HttpMethod.POST:
+            WebServer.create_file(filename, body)
+            response = self.response_post(body)
+        else:
+            response = b"HTTP/1.1 501 Not Implemented\r\n"
+            response += b"Content-Length: 0\r\n"
+            response += b"\r\n"
+
+        client_connection.sendall(response)
+
+        client_connection.shutdown(socket.SHUT_RDWR)
+        # client_conn.close()
+        print("Client connection closed")
 
 
 print(f"Server running in '{os.getcwd()}'.")

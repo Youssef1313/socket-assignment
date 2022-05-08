@@ -1,6 +1,6 @@
 import ssl
 from src.client.ChunkedEncodingHandler import ChunkedEncodingHandler
-from src.client.HttpRequest import HttpRequest
+from src.common.HttpRequest import HttpRequest
 import socket
 
 
