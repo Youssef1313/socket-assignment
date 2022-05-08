@@ -1,3 +1,4 @@
+import os
 import socket
 import threading
 from src.common.HttpMethod import HttpMethod
@@ -9,9 +10,16 @@ class WebServer:
     def __init__(self, port: int):
         self.host: str = 'localhost'
         self.port: int = port
+        self.server_path: str = os.path.dirname(__file__)
+
+    @staticmethod
+    def get_path(file_name: str) -> str:
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), "./" + file_name))
 
     @staticmethod
     def create_file(file_name: str, file_content: bytes) -> None:
+        file_name = WebServer.get_path(file_name)
+        os.makedirs(os.path.dirname(file_name), exist_ok=True)
         with open(file_name, 'wb') as f:
             f.write(file_content)
 
@@ -29,14 +37,14 @@ class WebServer:
     @staticmethod
     def response_get(filename: str) -> bytes:
         if filename == '/':
-            filename = 'src/server/index.html'
+            filename = WebServer.get_path('index.html')
 
         try:
             with open(filename, 'rb') as file:
                 content = file.read()
                 error_code_and_name = b"200 OK"
         except IOError:
-            filename = 'src/server/error.html'
+            filename = WebServer.get_path('index.html')
             with open(filename, 'rb') as file:
                 content = file.read()
             error_code_and_name = b"404 Not Found"
