@@ -2,6 +2,7 @@ import ssl
 from src.client.HttpResponseHeaderParser import HttpResponseHeaderParser
 from src.client.ChunkedEncodingHandler import ChunkedEncodingHandler
 from src.client.HttpRequest import HttpRequest
+from src.common.HttpMethod import HttpMethod
 from src.common.helpers import first_receive
 import socket
 
@@ -24,8 +25,8 @@ class WebClient:
             with open(path, 'wb') as f:
                 f.write(data)
 
-    def __send_receive(self, s: socket.socket, data: str) -> bytes:
-        s.sendall(bytes(data, encoding="utf-8"))
+    def __send_receive(self, s: socket.socket, data: bytes) -> bytes:
+        s.sendall(data)
 
         headers_body = first_receive(s)
         headers = headers_body[0]
@@ -62,9 +63,15 @@ class WebClient:
                     return headers + body
                 body += current
 
-    def __get_raw_http(self, request: HttpRequest) -> str:
-        raw_http: str = request.method.name + " " + request.file_name + " HTTP/1.1\r\n"
-        raw_http += "Host: " + request.host_name + "\r\n"
+    def __get_raw_http(self, request: HttpRequest) -> bytes:
+        raw_http: bytes = request.method.name.encode() + b" " + request.file_name.encode() + b" HTTP/1.1\r\n"
+        raw_http += b"Host: " + request.host_name.encode() + b"\r\n"
+        if request.method == HttpMethod.POST:
+            with open(request.file_name, "rb") as f:
+                content = f.read()
+            raw_http += b"Content-Length: " + str(len(content)).encode() + b"\r\n"
         # TODO: Add optional headers on the form of `header_name: value` followed by CRLF
-        raw_http += "\r\n"
+        raw_http += b"\r\n"
+        if request.method == HttpMethod.POST:
+            raw_http += content
         return raw_http
