@@ -6,6 +6,7 @@ import socket
 import threading
 from src.common.HttpMethod import HttpMethod
 from src.common.HttpRequestHeaderParser import HttpRequestHeaderParser
+from src.common.helpers import first_receive
 
 
 class WebServer:
@@ -87,14 +88,10 @@ class WebServer:
 
     def handle_request(self, client_connection: socket.socket, client_address):
         print("Client connection opened")
-        headers: bytes = b""
-        headers_length = -1
-        while headers_length == -1:
-            headers += client_connection.recv(1024)
-            headers_length = headers.find(b'\r\n\r\n')
 
-        body = headers[headers_length + len(b"\r\n\r\n"):]
-        headers = headers[:headers_length + len(b"\r\n\r\n")]
+        headers_body = first_receive(client_connection)
+        headers = headers_body[0]
+        body = headers_body[1]
 
         requestHeaderParser = HttpRequestHeaderParser(headers)
         requestHeaderParser.parse()
