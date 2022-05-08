@@ -1,12 +1,8 @@
-import sys
-sys.path.insert(0, '.')
-
-import os
 import socket
 import threading
 from src.common.HttpMethod import HttpMethod
-from src.server.HttpRequestHeaderParser import HttpRequestHeaderParser
 from src.common.helpers import first_receive
+from src.server.HttpRequestHeaderParser import HttpRequestHeaderParser
 
 
 class WebServer:
@@ -118,8 +114,3 @@ class WebServer:
         client_connection.shutdown(socket.SHUT_RDWR)
         # client_conn.close()
         print("Client connection closed")
-
-
-print(f"Server running in '{os.getcwd()}'.")
-server = WebServer(6678)
-server.init_server()
