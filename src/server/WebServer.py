@@ -1,8 +1,10 @@
+import sys
+sys.path.insert(0, '.')
+
 import os
 import socket
 import threading
 from src.common.HttpMethod import HttpMethod
-
 from src.common.HttpRequestHeaderParser import HttpRequestHeaderParser
 
 
@@ -43,7 +45,7 @@ class WebServer:
             error_code_and_name = b"404 Not Found"
         # https://datatracker.ietf.org/doc/html/rfc2616#section-6
         response = b"HTTP/1.1 " + error_code_and_name + b" \r\n"
-        response += "Content-Length: " + str(len(content)).encode() + b"\r\n"
+        response += b"Content-Length: " + str(len(content)).encode() + b"\r\n"
         # Add any more headers here.
         response += b"\r\n"
         response += content
