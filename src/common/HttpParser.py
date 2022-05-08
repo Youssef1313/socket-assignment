@@ -1,8 +1,10 @@
+from abc import ABC
+from abc import abstractmethod
 from src.common.HttpMethod import HttpMethod
 from src.common.HttpVersion import HttpVersion
 
 
-class HttpParser:
+class HttpParser(ABC):
     def __init__(self, raw_http: bytes):
         self.position: int = 0
         self.raw_http: bytes = raw_http
@@ -62,3 +64,7 @@ class HttpParser:
         header_value = self._parse_until_token(b'\r\n')
         self._eat_required(b'\r\n')
         return (header_name, header_value)
+
+    @abstractmethod
+    def parse(self):
+        pass

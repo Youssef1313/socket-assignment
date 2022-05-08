@@ -1,5 +1,5 @@
 from src.common.HttpMethod import HttpMethod
-from src.common.HttpRequest import HttpRequest
+from src.client.HttpRequest import HttpRequest
 from src.client.InputParser import InputParser
 
 

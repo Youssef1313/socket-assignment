@@ -1,4 +1,4 @@
-from src.common.HttpRequest import HttpRequest
+from src.client.HttpRequest import HttpRequest
 from src.common.HttpMethod import HttpMethod
 
 

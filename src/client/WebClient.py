@@ -1,7 +1,7 @@
 import ssl
 from src.client.HttpResponseHeaderParser import HttpResponseHeaderParser
 from src.client.ChunkedEncodingHandler import ChunkedEncodingHandler
-from src.common.HttpRequest import HttpRequest
+from src.client.HttpRequest import HttpRequest
 from src.common.helpers import first_receive
 import socket
 
