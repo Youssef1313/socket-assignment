@@ -1,18 +1,16 @@
-from src.client.HttpMethod import HttpMethod
+from src.common.HttpMethod import HttpMethod
 from src.client.HttpRequest import HttpRequest
 from src.client.InputParser import InputParser
 
 
 def test_minimal_allowed():
-    parser = InputParser("""GET file host""")
-    requests = parser.parse_input()
+    requests = InputParser.parse_input("""GET file host""")
     assert len(requests) == 1
     assert_request("file", "host", 80, HttpMethod.GET, requests[0])
 
 
 def test_minimal_allowed_with_port():
-    parser = InputParser("""GET file host 8080""")
-    requests = parser.parse_input()
+    requests = InputParser.parse_input("""GET file host 8080""")
     assert len(requests) == 1
     assert_request("file", "host", 8080, HttpMethod.GET, requests[0])
 

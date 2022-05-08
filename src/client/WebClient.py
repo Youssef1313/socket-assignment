@@ -1,6 +1,8 @@
 import ssl
+from src.client.HttpResponseHeaderParser import HttpResponseHeaderParser
 from src.client.ChunkedEncodingHandler import ChunkedEncodingHandler
 from src.client.HttpRequest import HttpRequest
+from src.common.helpers import first_receive
 import socket
 
 
@@ -24,54 +26,41 @@ class WebClient:
 
     def __send_receive(self, s: socket.socket, data: str) -> bytes:
         s.sendall(bytes(data, encoding="utf-8"))
-        response: bytes = b""
 
-        # Read Keep reading until we're sure we have all the headers.
-        headers_length = -1
-        while headers_length == -1:
-            current: bytes = s.recv(1024)
-            response += current
-            headers_length = response.find(b"\r\n\r\n")
+        headers_body = first_receive(s)
+        headers = headers_body[0]
+        body = headers_body[1]
 
-        # Now that we have all headers, try to find content length.
-        content_length = self.__find_content_length(response)
-        print(f"Content length is {content_length}")
+        response_header_parser = HttpResponseHeaderParser(headers)
+        response_header_parser.parse()
 
-        if content_length is None:
-            while True:
+        content_length = response_header_parser.headers.get("content-length")
+        transfer_encoding = response_header_parser.headers.get("transfer-encoding")
+        if content_length is not None:
+            content_length = int(content_length)
+            # We have content-length specified. So keep reading until we complete
+            # the incoming data.
+            expected_total_length = len(headers) + content_length
+            while len(headers) + len(body) < expected_total_length:
                 current = s.recv(1024)
-                if len(current) == 0:
-                    return response
-                response += current
-        elif content_length == -1:
+                body += current
+            return headers + body
+        elif transfer_encoding is not None and transfer_encoding.lower() == "chunked":
             # Handle chunked.
             chunked_handler = ChunkedEncodingHandler()
-            early_received_chunk = response[headers_length + len(b"\r\n\r\n"):]
-            response = response[:headers_length + len(b"\r\n\r\n")]
-            if len(early_received_chunk) > 0:
-                chunked_handler.add_data(early_received_chunk)
+
+            if len(body) > 0:
+                chunked_handler.add_data(body)
 
             while not chunked_handler.is_complete:
                 chunked_handler.add_data(s.recv(1024))
-            return response + b''.join(chunked_handler.chunks)
+            return headers + b''.join(chunked_handler.chunks)
         else:
-            # We have content-length specified. So keep reading until we complete
-            # the incoming data.
-            expected_total_length = headers_length + len("\r\n\r\n") + content_length
-            while len(response) < expected_total_length:
+            while True:
                 current = s.recv(1024)
-                response += current
-            return response
-
-    def __find_content_length(self, data: bytes) -> int:
-        lines = data.split(b"\r\n")
-        for line in lines:
-            if line == b"":
-                break
-            if line.lower().startswith(b"content-length: "):
-                return int(line[len(b"content-length: "):].decode())
-            if line.lower() == b"transfer-encoding: chunked":
-                return -1
+                if len(current) == 0:
+                    return headers + body
+                body += current
 
     def __get_raw_http(self, request: HttpRequest) -> str:
         raw_http: str = request.method.name + " " + request.file_name + " HTTP/1.1\r\n"
