@@ -36,7 +36,7 @@ class WebClient:
 
         content_length = response_header_parser.headers.get("content-length")
         transfer_encoding = response_header_parser.headers.get("transfer-encoding")
-        connection = response_header_parser.headers.get("connection").lower()
+        connection = response_header_parser.headers.get("connection")
         should_close = connection == "close" or (connection is None and response_header_parser.version == HttpVersion.HTTP_1_0)
         if content_length is not None:
             content_length = int(content_length)

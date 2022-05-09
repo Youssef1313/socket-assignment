@@ -121,7 +121,7 @@ class WebServer:
             response += b"\r\n"
 
         client_connection.sendall(response)
-        connection = request_header_parser.headers.get("connection").lower()
+        connection = request_header_parser.headers.get("connection")
         if connection == "close" or (connection is None and request_header_parser.version == HttpVersion.HTTP_1_0):
             client_connection.close()
 
