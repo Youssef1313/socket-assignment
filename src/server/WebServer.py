@@ -2,6 +2,7 @@ import os
 import socket
 import threading
 from src.common.HttpMethod import HttpMethod
+from src.common.HttpVersion import HttpVersion
 from src.common.helpers import first_receive
 from src.server.HttpRequestHeaderParser import HttpRequestHeaderParser
 
@@ -120,6 +121,8 @@ class WebServer:
             response += b"\r\n"
 
         client_connection.sendall(response)
-        client_connection.close()
+        connection = request_header_parser.headers.get("connection").lower()
+        if connection == "close" or (connection is None and request_header_parser.version == HttpVersion.HTTP_1_0):
+            client_connection.close()
 
         print("Client connection closed")
