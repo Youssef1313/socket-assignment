@@ -36,15 +36,14 @@ class WebServer:
 
     @staticmethod
     def response_get(filename: str) -> bytes:
-        if filename == '/':
-            filename = WebServer.get_path('index.html')
+        filename = WebServer.get_path('index.html' if filename == '/' else filename)
 
         try:
             with open(filename, 'rb') as file:
                 content = file.read()
                 error_code_and_name = b"200 OK"
         except IOError:
-            filename = WebServer.get_path('index.html')
+            filename = WebServer.get_path('error.html')
             with open(filename, 'rb') as file:
                 content = file.read()
             error_code_and_name = b"404 Not Found"
@@ -93,7 +92,10 @@ class WebServer:
     def handle_request(self, client_connection: socket.socket, client_address):
         print("Client connection opened")
 
-        headers_body = first_receive(client_connection)
+        try:
+            headers_body = first_receive(client_connection)
+        except ConnectionAbortedError:
+            return
         headers = headers_body[0]
         body = headers_body[1]
 
@@ -118,7 +120,6 @@ class WebServer:
             response += b"\r\n"
 
         client_connection.sendall(response)
+        client_connection.close()
 
-        client_connection.shutdown(socket.SHUT_RDWR)
-        # client_conn.close()
         print("Client connection closed")
