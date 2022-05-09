@@ -6,8 +6,6 @@ def first_receive(s: socket):
     headers_length = -1
     while headers_length == -1:
         current = s.recv(1024)
-        if len(current) == 0:
-            raise ConnectionAbortedError()
         headers += current
         headers_length = headers.find(b'\r\n\r\n')
 

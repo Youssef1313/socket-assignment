@@ -94,37 +94,36 @@ class WebServer:
         socket_server.close()
 
     def handle_request(self, client_connection: socket.socket, client_address):
-        try:
+        while True:  # TODO: Handle closing idle connections..
             headers_body = first_receive(client_connection)
-        except ConnectionAbortedError:
-            return
-        headers = headers_body[0]
-        body = headers_body[1]
+            headers = headers_body[0]
+            body = headers_body[1]
+            request_header_parser = HttpRequestHeaderParser(headers)
+            request_header_parser.parse()
 
-        request_header_parser = HttpRequestHeaderParser(headers)
-        request_header_parser.parse()
+            content_length = request_header_parser.headers.get('content-length')
+            if content_length is not None:
+                expected_total_length = len(headers) + int(content_length)
+                while len(headers) + len(body) < expected_total_length:
+                    body += client_connection.recv(1024)
 
-        content_length = request_header_parser.headers.get('content-length')
-        if content_length is not None:
-            expected_total_length = len(headers) + int(content_length)
-            while len(headers) + len(body) < expected_total_length:
-                body += client_connection.recv(1024)
+            filename = self.get_filename(request_header_parser.url)
+            connection = request_header_parser.headers.get("connection")
+            should_close = connection == "close" or (connection is None and request_header_parser.version == HttpVersion.HTTP_1_0)
+            if request_header_parser.method == HttpMethod.GET:
+                response = self.response_get(filename, should_close)
+            elif request_header_parser.method == HttpMethod.POST:
+                WebServer.create_file(filename, body)
+                response = self.response_post(body, should_close)
+            else:
+                response = b"HTTP/1.1 501 Not Implemented\r\n"
+                response += b"Content-Length: 0\r\n"
+                if should_close:
+                    response += b"Connection: close\r\n"
+                response += b"\r\n"
 
-        filename = self.get_filename(request_header_parser.url)
-        connection = request_header_parser.headers.get("connection")
-        should_close = connection == "close" or (connection is None and request_header_parser.version == HttpVersion.HTTP_1_0)
-        if request_header_parser.method == HttpMethod.GET:
-            response = self.response_get(filename, should_close)
-        elif request_header_parser.method == HttpMethod.POST:
-            WebServer.create_file(filename, body)
-            response = self.response_post(body, should_close)
-        else:
-            response = b"HTTP/1.1 501 Not Implemented\r\n"
-            response += b"Content-Length: 0\r\n"
+            client_connection.sendall(response)
             if should_close:
-                response += b"Connection: close\r\n"
-            response += b"\r\n"
-
-        client_connection.sendall(response)
-        if should_close:
-            client_connection.close()
+                client_connection.shutdown(socket.SHUT_RDWR)
+                client_connection.close()
+                return
