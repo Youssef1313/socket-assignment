@@ -39,3 +39,6 @@ class SocketFactory:
             new_socket.connect((host_name, port_number))
             self.socket_cache[(host_name, port_number)] = new_socket
             return new_socket
+
+    def remove_socket(self, host_name, port_number):
+        self.socket_cache.pop((host_name, port_number)).close()
