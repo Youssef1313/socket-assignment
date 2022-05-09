@@ -13,6 +13,6 @@ class HttpRequest:
             raise ArgumentError("Invalid HttpMethod.")
 
         self.method = method
-        self.file_name = file_name
+        self.file_name = file_name if file_name[0] == '/' else '/' + file_name
         self.host_name = host_name
         self.port_number = 80 if port_number is None else port_number
