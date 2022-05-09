@@ -5,7 +5,10 @@ def first_receive(s: socket):
     headers: bytes = b""
     headers_length = -1
     while headers_length == -1:
-        headers += s.recv(1024)
+        current = s.recv(1024)
+        if len(current) == 0:
+            raise ConnectionAbortedError()
+        headers += current
         headers_length = headers.find(b'\r\n\r\n')
 
     body = headers[headers_length + len(b"\r\n\r\n"):]

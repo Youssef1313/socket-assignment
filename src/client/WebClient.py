@@ -1,33 +1,31 @@
-import ssl
 from src.client.HttpResponseHeaderParser import HttpResponseHeaderParser
 from src.client.ChunkedEncodingHandler import ChunkedEncodingHandler
 from src.client.HttpRequest import HttpRequest
+from src.client.SocketFactory import SocketFactory
 from src.common.HttpMethod import HttpMethod
 from src.common.helpers import first_receive
 import socket
 
 
 class WebClient:
+    def __init__(self):
+        self.socket_factory = SocketFactory()
+
     def send_request(self, request: HttpRequest) -> None:
         raw_http = self.__get_raw_http(request)
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if request.port_number == 443:
-                # https uses port 443, and needs special handling.
-                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-                with ssl_context.wrap_socket(s, server_hostname=request.host_name) as ssl_socket:
-                    ssl_socket.connect((request.host_name, request.port_number))
-                    data = self.__send_receive(ssl_socket, raw_http)
-            else:
-                s.connect((request.host_name, request.port_number))
-                data = self.__send_receive(s, raw_http)
-            path = f"C:\\received-{request.host_name}.txt"
-            print(f"Writing response in '{path}'")
-            with open(path, 'wb') as f:
-                f.write(data)
+        socket = self.socket_factory.get_or_create_socket(request.host_name, request.port_number)
+        try:
+            data = self.__send_receive(socket, raw_http)
+        except ConnectionAbortedError:
+            socket = self.socket_factory.create_socket(request.host_name, request.port_number)
+            data = self.__send_receive(socket, raw_http)
+        path = f"C:\\received-{request.host_name}.txt"
+        print(f"Writing response in '{path}'")
+        with open(path, 'wb') as f:
+            f.write(data)
 
     def __send_receive(self, s: socket.socket, data: bytes) -> bytes:
         s.sendall(data)
-
         headers_body = first_receive(s)
         headers = headers_body[0]
         body = headers_body[1]
