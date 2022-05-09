@@ -3,6 +3,7 @@ from src.client.ChunkedEncodingHandler import ChunkedEncodingHandler
 from src.client.HttpRequest import HttpRequest
 from src.client.SocketFactory import SocketFactory
 from src.common.HttpMethod import HttpMethod
+from src.common.HttpVersion import HttpVersion
 from src.common.helpers import first_receive
 import socket
 
@@ -15,16 +16,16 @@ class WebClient:
         raw_http = self.__get_raw_http(request)
         socket = self.socket_factory.get_or_create_socket(request.host_name, request.port_number)
         try:
-            data = self.__send_receive(socket, raw_http)
+            data = self.__send_receive(socket, raw_http, request)
         except ConnectionAbortedError:
             socket = self.socket_factory.create_socket(request.host_name, request.port_number)
-            data = self.__send_receive(socket, raw_http)
+            data = self.__send_receive(socket, raw_http, request)
         path = f"C:\\received-{request.host_name}.txt"
         print(f"Writing response in '{path}'")
         with open(path, 'wb') as f:
             f.write(data)
 
-    def __send_receive(self, s: socket.socket, data: bytes) -> bytes:
+    def __send_receive(self, s: socket.socket, data: bytes, request: HttpRequest) -> bytes:
         s.sendall(data)
         headers_body = first_receive(s)
         headers = headers_body[0]
@@ -35,6 +36,8 @@ class WebClient:
 
         content_length = response_header_parser.headers.get("content-length")
         transfer_encoding = response_header_parser.headers.get("transfer-encoding")
+        connection = response_header_parser.headers.get("connection").lower()
+        should_close = connection == "close" or (connection is None and response_header_parser.version == HttpVersion.HTTP_1_0)
         if content_length is not None:
             content_length = int(content_length)
             # We have content-length specified. So keep reading until we complete
@@ -43,6 +46,8 @@ class WebClient:
             while len(headers) + len(body) < expected_total_length:
                 current = s.recv(1024)
                 body += current
+            if should_close:
+                self.socket_factory.remove_socket(request.host_name, request.port_number)
             return headers + body
         elif transfer_encoding is not None and transfer_encoding.lower() == "chunked":
             # Handle chunked.
@@ -53,11 +58,15 @@ class WebClient:
 
             while not chunked_handler.is_complete:
                 chunked_handler.add_data(s.recv(1024))
+            if should_close:
+                self.socket_factory.remove_socket(request.host_name, request.port_number)
             return headers + b''.join(chunked_handler.chunks)
         else:
             while True:
                 current = s.recv(1024)
                 if len(current) == 0:
+                    if should_close:
+                        self.socket_factory.remove_socket(request.host_name, request.port_number)
                     return headers + body
                 body += current
 
