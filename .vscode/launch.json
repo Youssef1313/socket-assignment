@@ -9,7 +9,7 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "args": ["6678"],
+            "args": ["commands.txt"],
             "console": "integratedTerminal",
             "justMyCode": true
         }
