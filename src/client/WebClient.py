@@ -15,11 +15,7 @@ class WebClient:
     def send_request(self, request: HttpRequest) -> None:
         raw_http = self.__get_raw_http(request)
         socket = self.socket_factory.get_or_create_socket(request.host_name, request.port_number)
-        try:
-            data = self.__send_receive(socket, raw_http, request)
-        except ConnectionAbortedError:
-            socket = self.socket_factory.create_socket(request.host_name, request.port_number)
-            data = self.__send_receive(socket, raw_http, request)
+        data = self.__send_receive(socket, raw_http, request)
         path = f"C:\\received-{request.host_name}.txt"
         print(f"Writing response in '{path}'")
         with open(path, 'wb') as f:
@@ -28,6 +24,12 @@ class WebClient:
     def __send_receive(self, s: socket.socket, data: bytes, request: HttpRequest) -> bytes:
         s.sendall(data)
         headers_body = first_receive(s)
+        if headers_body is None:
+            print("Server closed connection. Creating a new socket.")
+            s = self.socket_factory.create_socket(request.host_name, request.port_number)
+            s.sendall(data)
+            headers_body = first_receive(s)
+
         headers = headers_body[0]
         body = headers_body[1]
 
