@@ -6,6 +6,7 @@ from src.common.HttpMethod import HttpMethod
 from src.common.HttpVersion import HttpVersion
 from src.common.helpers import first_receive
 from src.server.HttpRequestHeaderParser import HttpRequestHeaderParser
+from src.server.SocketTracker import SocketTracker
 
 
 class WebServer:
@@ -13,6 +14,7 @@ class WebServer:
         self.host: str = 'localhost'
         self.port: int = port
         self.server_path: str = os.path.dirname(__file__)
+        self.socket_tracker = SocketTracker()
 
     @staticmethod
     def get_path(file_name: str) -> str:
@@ -36,7 +38,7 @@ class WebServer:
         return urlparse(url.decode()).path
 
     @staticmethod
-    def response_get(filename: str, should_close: bool) -> bytes:
+    def get_status_and_content_of_file(filename: str) -> tuple[bytes, bytes]:
         filename = WebServer.get_path('index.html' if filename == '/' else filename)
 
         try:
@@ -48,26 +50,16 @@ class WebServer:
             with open(filename, 'rb') as file:
                 content = file.read()
             error_code_and_name = b"404 Not Found"
+        return (error_code_and_name, content)
+
+    @staticmethod
+    def get_raw_http_response(error_code_and_name: bytes, content: bytes, should_close: bool) -> bytes:
         # https://datatracker.ietf.org/doc/html/rfc2616#section-6
         response = b"HTTP/1.1 " + error_code_and_name + b"\r\n"
         response += b"Content-Length: " + str(len(content)).encode() + b"\r\n"
         if should_close:
             response += b"Connection: close\r\n"
         # Add any more headers here.
-        response += b"\r\n"
-        response += content
-        return response
-
-    @staticmethod
-    def response_post(content: bytes, should_close: bool) -> bytes:
-        response = b"HTTP/1.1 201 Created\r\n"
-        # https://datatracker.ietf.org/doc/html/rfc7231#section-6.3.2
-        # The primary resource created by the request is identified
-        # by either a Location header field in the response or, if no Location
-        # field is received, by the effective request URI.
-        response += b"Content-Length: " + str(len(content)).encode() + b"\r\n"
-        if should_close:
-            response += b"Connection: close\r\n"
         response += b"\r\n"
         response += content
         return response
@@ -95,7 +87,18 @@ class WebServer:
 
     def handle_request(self, client_connection: socket.socket, client_address):
         while True:  # TODO: Handle closing idle connections..
-            headers_body = first_receive(client_connection)
+            try:
+                self.socket_tracker.use_socket(client_connection)
+                headers_body = first_receive(client_connection)
+            except OSError:
+                # We get here if the connection got closed due to inactivity.
+                # We don't want to call kill_socket here. The socket is already killed.
+                return
+
+            if headers_body is None:
+                self.socket_tracker.kill_socket(client_connection)
+                return
+
             headers = headers_body[0]
             body = headers_body[1]
             request_header_parser = HttpRequestHeaderParser(headers)
@@ -111,19 +114,15 @@ class WebServer:
             connection = request_header_parser.headers.get("connection")
             should_close = connection == "close" or (connection is None and request_header_parser.version == HttpVersion.HTTP_1_0)
             if request_header_parser.method == HttpMethod.GET:
-                response = self.response_get(filename, should_close)
+                status_content = WebServer.get_status_and_content_of_file(filename)
+                response = WebServer.get_raw_http_response(status_content[0], status_content[1], should_close)
             elif request_header_parser.method == HttpMethod.POST:
                 WebServer.create_file(filename, body)
-                response = self.response_post(body, should_close)
+                response = WebServer.get_raw_http_response(b"201 Created", body, should_close)
             else:
-                response = b"HTTP/1.1 501 Not Implemented\r\n"
-                response += b"Content-Length: 0\r\n"
-                if should_close:
-                    response += b"Connection: close\r\n"
-                response += b"\r\n"
+                response = WebServer.get_raw_http_response(b"501 Not Implemented", b"", should_close)
 
             client_connection.sendall(response)
             if should_close:
-                client_connection.shutdown(socket.SHUT_RDWR)
-                client_connection.close()
+                self.socket_tracker.kill_socket(client_connection)
                 return
