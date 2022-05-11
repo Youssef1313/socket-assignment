@@ -36,7 +36,7 @@ class WebServer:
         return urlparse(url.decode()).path
 
     @staticmethod
-    def response_get(filename: str, should_close: bool) -> bytes:
+    def get_status_and_content_of_file(filename: str) -> tuple[bytes, bytes]:
         filename = WebServer.get_path('index.html' if filename == '/' else filename)
 
         try:
@@ -48,26 +48,16 @@ class WebServer:
             with open(filename, 'rb') as file:
                 content = file.read()
             error_code_and_name = b"404 Not Found"
+        return (error_code_and_name, content)
+
+    @staticmethod
+    def get_raw_http_response(error_code_and_name: bytes, content: bytes, should_close: bool) -> bytes:
         # https://datatracker.ietf.org/doc/html/rfc2616#section-6
         response = b"HTTP/1.1 " + error_code_and_name + b"\r\n"
         response += b"Content-Length: " + str(len(content)).encode() + b"\r\n"
         if should_close:
-            response += b"Connection: close\r\n"
+            response += b"Connection: close"
         # Add any more headers here.
-        response += b"\r\n"
-        response += content
-        return response
-
-    @staticmethod
-    def response_post(content: bytes, should_close: bool) -> bytes:
-        response = b"HTTP/1.1 201 Created\r\n"
-        # https://datatracker.ietf.org/doc/html/rfc7231#section-6.3.2
-        # The primary resource created by the request is identified
-        # by either a Location header field in the response or, if no Location
-        # field is received, by the effective request URI.
-        response += b"Content-Length: " + str(len(content)).encode() + b"\r\n"
-        if should_close:
-            response += b"Connection: close\r\n"
         response += b"\r\n"
         response += content
         return response
@@ -111,16 +101,13 @@ class WebServer:
             connection = request_header_parser.headers.get("connection")
             should_close = connection == "close" or (connection is None and request_header_parser.version == HttpVersion.HTTP_1_0)
             if request_header_parser.method == HttpMethod.GET:
-                response = self.response_get(filename, should_close)
+                status_content = WebServer.get_status_and_content_of_file(filename)
+                response = WebServer.get_raw_http_response(status_content[0], status_content[1], should_close)
             elif request_header_parser.method == HttpMethod.POST:
                 WebServer.create_file(filename, body)
-                response = self.response_post(body, should_close)
+                response = WebServer.get_raw_http_response(b"201 Created", body, should_close)
             else:
-                response = b"HTTP/1.1 501 Not Implemented\r\n"
-                response += b"Content-Length: 0\r\n"
-                if should_close:
-                    response += b"Connection: close\r\n"
-                response += b"\r\n"
+                response = WebServer.get_raw_http_response(b"501 Not Implemented", b"", should_close)
 
             client_connection.sendall(response)
             if should_close:
