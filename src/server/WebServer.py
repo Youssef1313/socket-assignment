@@ -6,6 +6,7 @@ from src.common.HttpMethod import HttpMethod
 from src.common.HttpVersion import HttpVersion
 from src.common.helpers import first_receive
 from src.server.HttpRequestHeaderParser import HttpRequestHeaderParser
+from src.server.SocketTracker import SocketTracker
 
 
 class WebServer:
@@ -13,6 +14,7 @@ class WebServer:
         self.host: str = 'localhost'
         self.port: int = port
         self.server_path: str = os.path.dirname(__file__)
+        self.socket_tracker = SocketTracker()
 
     @staticmethod
     def get_path(file_name: str) -> str:
@@ -56,7 +58,7 @@ class WebServer:
         response = b"HTTP/1.1 " + error_code_and_name + b"\r\n"
         response += b"Content-Length: " + str(len(content)).encode() + b"\r\n"
         if should_close:
-            response += b"Connection: close"
+            response += b"Connection: close\r\n"
         # Add any more headers here.
         response += b"\r\n"
         response += content
@@ -85,7 +87,18 @@ class WebServer:
 
     def handle_request(self, client_connection: socket.socket, client_address):
         while True:  # TODO: Handle closing idle connections..
-            headers_body = first_receive(client_connection)
+            try:
+                self.socket_tracker.use_socket(client_connection)
+                headers_body = first_receive(client_connection)
+            except OSError:
+                # We get here if the connection got closed due to inactivity.
+                # We don't want to call kill_socket here. The socket is already killed.
+                return
+
+            if headers_body is None:
+                self.socket_tracker.kill_socket(client_connection)
+                return
+
             headers = headers_body[0]
             body = headers_body[1]
             request_header_parser = HttpRequestHeaderParser(headers)
@@ -111,6 +124,5 @@ class WebServer:
 
             client_connection.sendall(response)
             if should_close:
-                client_connection.shutdown(socket.SHUT_RDWR)
-                client_connection.close()
+                self.socket_tracker.kill_socket(client_connection)
                 return
