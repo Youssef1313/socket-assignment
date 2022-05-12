@@ -15,6 +15,7 @@ class WebServer:
         self.port: int = port
         self.server_path: str = os.path.dirname(__file__)
         self.socket_tracker = SocketTracker()
+        self.sending_lock = threading.Lock()
 
     @staticmethod
     def get_path(file_name: str) -> str:
@@ -122,7 +123,12 @@ class WebServer:
             else:
                 response = WebServer.get_raw_http_response(b"501 Not Implemented", b"", should_close)
 
-            client_connection.sendall(response)
+            with self.sending_lock:
+                threading.Thread(target=self.send, args=(client_connection, response)).start()
+
             if should_close:
                 self.socket_tracker.kill_socket(client_connection)
                 return
+
+    def send(self, client_connection: socket.socket, response: bytes):
+        client_connection.sendall(response)
