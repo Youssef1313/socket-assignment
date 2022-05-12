@@ -123,8 +123,8 @@ class WebServer:
             else:
                 response = WebServer.get_raw_http_response(b"501 Not Implemented", b"", should_close)
 
-            with self.sending_lock:
-                threading.Thread(target=self.send, args=(client_connection, response)).start()
+            self.sending_lock.acquire()
+            threading.Thread(target=self.send, args=(client_connection, response)).start()
 
             if should_close:
                 self.socket_tracker.kill_socket(client_connection)
@@ -132,3 +132,4 @@ class WebServer:
 
     def send(self, client_connection: socket.socket, response: bytes):
         client_connection.sendall(response)
+        self.sending_lock.release()
