@@ -130,5 +130,5 @@ class WebServer:
                 self.socket_tracker.kill_socket(client_connection)
                 return
 
-    def send(client_connection: socket.socket, response: bytes):
+    def send(self, client_connection: socket.socket, response: bytes):
         client_connection.sendall(response)
