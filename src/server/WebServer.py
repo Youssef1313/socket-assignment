@@ -40,7 +40,7 @@ class WebServer:
 
     @staticmethod
     def get_status_and_content_of_file(filename: str) -> tuple[bytes, bytes]:
-        filename = WebServer.get_path('index.html' if filename == '/' else filename)
+        filename = WebServer.get_path(filename)
 
         try:
             with open(filename, 'rb') as file:
@@ -112,14 +112,18 @@ class WebServer:
                     body += client_connection.recv(1024)
 
             filename = self.get_filename(request_header_parser.url)
+            filename = 'index.html' if filename == '/' else filename
             connection = request_header_parser.headers.get("connection")
             should_close = connection == "close" or (connection is None and request_header_parser.version == HttpVersion.HTTP_1_0)
             if request_header_parser.method == HttpMethod.GET:
                 status_content = WebServer.get_status_and_content_of_file(filename)
                 response = WebServer.get_raw_http_response(status_content[0], status_content[1], should_close)
             elif request_header_parser.method == HttpMethod.POST:
-                WebServer.create_file(filename, body)
-                response = WebServer.get_raw_http_response(b"201 Created", body, should_close)
+                if filename in ["index.html", "error.html"]:
+                    response = WebServer.get_raw_http_response(b"403 Forbidden", b"You cannot make a POST request to overwrite index.html or error.html")
+                else:
+                    WebServer.create_file(filename, body)
+                    response = WebServer.get_raw_http_response(b"201 Created", body, should_close)
             else:
                 response = WebServer.get_raw_http_response(b"501 Not Implemented", b"", should_close)
 

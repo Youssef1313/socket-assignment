@@ -1,6 +1,8 @@
+import os
 from src.client.HttpResponseHeaderParser import HttpResponseHeaderParser
 from src.client.ChunkedEncodingHandler import ChunkedEncodingHandler
 from src.client.HttpRequest import HttpRequest
+from src.client.ResponsesCache import ResponsesCache
 from src.client.SocketFactory import SocketFactory
 from src.common.HttpMethod import HttpMethod
 from src.common.HttpVersion import HttpVersion
@@ -11,12 +13,35 @@ import socket
 class WebClient:
     def __init__(self):
         self.socket_factory = SocketFactory()
+        self.cache = ResponsesCache()
+
+    @staticmethod
+    def get_path(file_name: str) -> str:
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), "./" + file_name))
+
+    @staticmethod
+    def get_file_name_for_request(request: HttpRequest) -> str:
+        filename = f"{request.host_name}_{request.port_number}_{request.file_name}"
+        return filename.replace('\\', '').replace('/', '') \
+                       .replace(':', '').replace('*', '') \
+                       .replace('?', '').replace('"', '') \
+                       .replace('<', '').replace('>', '') \
+                       .replace('|', '')
 
     def send_request(self, request: HttpRequest) -> None:
-        raw_http = self.__get_raw_http(request)
-        socket = self.socket_factory.get_or_create_socket(request.host_name, request.port_number)
-        data = self.__send_receive(socket, raw_http, request)
-        path = f"C:\\received-{request.host_name}.txt"
+        data = None
+        if request.method == HttpMethod.GET:
+            data = self.cache.try_get(request.file_name, request.host_name, request.port_number)
+
+        if data is not None:
+            print(f"Cache hit for ({request.file_name}, {request.host_name}, {request.port_number})")
+        else:
+            raw_http = self.__get_raw_http(request)
+            socket = self.socket_factory.get_or_create_socket(request.host_name, request.port_number)
+            data = self.__send_receive(socket, raw_http, request)
+            if request.method == HttpMethod.GET:
+                self.cache.add_to_cache(request.file_name, request.host_name, request.port_number, data)
+        path = WebClient.get_path(WebClient.get_file_name_for_request(request))
         print(f"Writing response in '{path}'")
         with open(path, 'wb') as f:
             f.write(data)
