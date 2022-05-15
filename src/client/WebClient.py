@@ -6,8 +6,8 @@ from src.client.ResponsesCache import ResponsesCache
 from src.client.SocketFactory import SocketFactory
 from src.common.HttpMethod import HttpMethod
 from src.common.HttpVersion import HttpVersion
+from src.common.SocketWrapper import SocketWrapper
 from src.common.helpers import first_receive
-import socket
 
 
 class WebClient:
@@ -37,8 +37,8 @@ class WebClient:
             print(f"Cache hit for ({request.file_name}, {request.host_name}, {request.port_number})")
         else:
             raw_http = self.__get_raw_http(request)
-            socket = self.socket_factory.get_or_create_socket(request.host_name, request.port_number)
-            data = self.__send_receive(socket, raw_http, request)
+            socket_wrapper = SocketWrapper(self.socket_factory.get_or_create_socket(request.host_name, request.port_number))
+            data = self.__send_receive(socket_wrapper, raw_http, request)
             if request.method == HttpMethod.GET:
                 self.cache.add_to_cache(request.file_name, request.host_name, request.port_number, data)
         path = WebClient.get_path(WebClient.get_file_name_for_request(request))
@@ -46,17 +46,16 @@ class WebClient:
         with open(path, 'wb') as f:
             f.write(data)
 
-    def __send_receive(self, s: socket.socket, data: bytes, request: HttpRequest) -> bytes:
-        s.sendall(data)
-        headers_body = first_receive(s)
-        if headers_body is None:
+    def __send_receive(self, s: SocketWrapper, data: bytes, request: HttpRequest) -> bytes:
+        s.s.sendall(data)
+        headers = first_receive(s)
+        if headers is None:
             print("Server closed connection. Creating a new socket.")
-            s = self.socket_factory.create_socket(request.host_name, request.port_number)
-            s.sendall(data)
-            headers_body = first_receive(s)
+            s = SocketWrapper(self.socket_factory.create_socket(request.host_name, request.port_number))
+            s.s.sendall(data)
+            headers = first_receive(s)
 
-        headers = headers_body[0]
-        body = headers_body[1]
+        body = b''
 
         response_header_parser = HttpResponseHeaderParser(headers)
         response_header_parser.parse()
@@ -71,7 +70,7 @@ class WebClient:
             # the incoming data.
             expected_total_length = len(headers) + content_length
             while len(headers) + len(body) < expected_total_length:
-                current = s.recv(1024)
+                current = s.recv()
                 body += current
             if should_close:
                 self.socket_factory.remove_socket(request.host_name, request.port_number)
@@ -84,13 +83,13 @@ class WebClient:
                 chunked_handler.add_data(body)
 
             while not chunked_handler.is_complete:
-                chunked_handler.add_data(s.recv(1024))
+                chunked_handler.add_data(s.recv())
             if should_close:
                 self.socket_factory.remove_socket(request.host_name, request.port_number)
             return headers + b''.join(chunked_handler.chunks)
         else:
             while True:
-                current = s.recv(1024)
+                current = s.recv()
                 if len(current) == 0:
                     if should_close:
                         self.socket_factory.remove_socket(request.host_name, request.port_number)

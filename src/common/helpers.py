@@ -1,11 +1,11 @@
-from socket import socket
+from src.common.SocketWrapper import SocketWrapper
 
 
-def first_receive(s: socket):
+def first_receive(s: SocketWrapper):
     headers: bytes = b""
     headers_length = -1
     while headers_length == -1:
-        current = s.recv(1024)
+        current = s.recv()
         if len(current) == 0:
             break
         headers += current
@@ -18,5 +18,6 @@ def first_receive(s: socket):
             raise ValueError(f"Got into unexpected state. Received part of headers?\r\n{headers}")
 
     body = headers[headers_length + len(b"\r\n\r\n"):]
+    s.add_back(body)
     headers = headers[:headers_length + len(b"\r\n\r\n")]
-    return (headers, body)
+    return headers

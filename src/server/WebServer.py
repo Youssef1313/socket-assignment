@@ -4,6 +4,7 @@ import threading
 from urllib.parse import urlparse
 from src.common.HttpMethod import HttpMethod
 from src.common.HttpVersion import HttpVersion
+from src.common.SocketWrapper import SocketWrapper
 from src.common.helpers import first_receive
 from src.server.HttpRequestHeaderParser import HttpRequestHeaderParser
 from src.server.SocketTracker import SocketTracker
@@ -87,21 +88,21 @@ class WebServer:
         socket_server.close()
 
     def handle_request(self, client_connection: socket.socket, client_address):
+        socket_wrapper = SocketWrapper(client_connection)
         while True:  # TODO: Handle closing idle connections..
             try:
                 self.socket_tracker.use_socket(client_connection)
-                headers_body = first_receive(client_connection)
+                headers = first_receive(socket_wrapper)
             except OSError:
                 # We get here if the connection got closed due to inactivity.
                 # We don't want to call kill_socket here. The socket is already killed.
                 return
 
-            if headers_body is None:
+            if headers is None:
                 self.socket_tracker.kill_socket(client_connection)
                 return
 
-            headers = headers_body[0]
-            body = headers_body[1]
+            body = b''
             request_header_parser = HttpRequestHeaderParser(headers)
             request_header_parser.parse()
 
@@ -109,7 +110,7 @@ class WebServer:
             if content_length is not None:
                 expected_total_length = len(headers) + int(content_length)
                 while len(headers) + len(body) < expected_total_length:
-                    body += client_connection.recv(1024)
+                    body += socket_wrapper.recv()
 
             filename = self.get_filename(request_header_parser.url)
             filename = 'index.html' if filename == '/' else filename
