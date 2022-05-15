@@ -8,7 +8,6 @@ from src.common.HttpMethod import HttpMethod
 from src.common.HttpVersion import HttpVersion
 from src.common.SocketWrapper import SocketWrapper
 from src.common.helpers import first_receive
-import socket
 
 
 class WebClient:
@@ -38,8 +37,7 @@ class WebClient:
             print(f"Cache hit for ({request.file_name}, {request.host_name}, {request.port_number})")
         else:
             raw_http = self.__get_raw_http(request)
-            socket = self.socket_factory.get_or_create_socket(request.host_name, request.port_number)
-            socket_wrapper = SocketWrapper(socket)
+            socket_wrapper = SocketWrapper(self.socket_factory.get_or_create_socket(request.host_name, request.port_number))
             data = self.__send_receive(socket_wrapper, raw_http, request)
             if request.method == HttpMethod.GET:
                 self.cache.add_to_cache(request.file_name, request.host_name, request.port_number, data)
