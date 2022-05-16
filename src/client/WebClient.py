@@ -100,7 +100,7 @@ class WebClient:
         raw_http: bytes = request.method.name.encode() + b" " + request.file_name.encode() + b" HTTP/1.1\r\n"
         raw_http += b"Host: " + request.host_name.encode() + b"\r\n"
         if request.method == HttpMethod.POST:
-            with open(request.file_name, "rb") as f:
+            with open(WebClient.get_path(request.file_name), "rb") as f:
                 content = f.read()
             raw_http += b"Content-Length: " + str(len(content)).encode() + b"\r\n"
         # TODO: Add optional headers on the form of `header_name: value` followed by CRLF
